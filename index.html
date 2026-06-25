@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passport Studio — Pro ID Photos in Your Browser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"
+        crossorigin="anonymous"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@200;300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0a0908;
+            --bg-2: #14110f;
+            --fg: #f5f1e8;
+            --muted: #8a847a;
+            --accent: #f59e0b;
+            --accent-2: #fbbf24;
+            --accent-3: #d97706;
+            --card: rgba(28, 24, 21, 0.55);
+            --border: rgba(245, 158, 11, 0.15);
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'Manrope', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .font-display {
+            font-family: 'Bebas Neue', sans-serif;
+            letter-spacing: 0.02em;
+        }
+
+        /* Atmospheric layered background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 15% 0%, rgba(245, 158, 11, 0.13), transparent 60%),
+                radial-gradient(ellipse 60% 50% at 85% 100%, rgba(217, 119, 6, 0.10), transparent 60%),
+                radial-gradient(ellipse 100% 100% at 50% 50%, rgba(20, 17, 15, 0.5), transparent 80%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/></svg>");
+            opacity: 0.06;
+            pointer-events: none;
+            z-index: 1;
+            mix-blend-mode: overlay;
+        }
+
+        .glass {
+            background: var(--card);
+            backdrop-filter: blur(20px) saturate(1.2);
+            -webkit-backdrop-filter: blur(20px) saturate(1.2);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-2), var(--accent-3));
+            color: #0a0908;
+            font-weight: 700;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.25);
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(245, 158, 11, 0.45);
+        }
+
+        .btn-primary:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--fg);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(245, 158, 11, 0.35);
+            color: var(--accent-2);
+        }
+
+        .btn-secondary:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .tab-btn {
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+            color: var(--muted);
+            cursor: pointer;
+            background: transparent;
+        }
+
+        .tab-btn.active {
+            border-bottom-color: var(--accent);
+            color: var(--accent-2);
+        }
+
+        /* Webcam container with viewfinder corners */
+        .webcam-container {
+            position: relative;
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .webcam-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            /* mirror for natural feel */
+        }
+
+        .face-guide {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .face-guide::before {
+            content: '';
+            width: 45%;
+            aspect-ratio: 3/4;
+            border: 2px dashed rgba(245, 158, 11, 0.45);
+            border-radius: 48% 48% 45% 45% / 60% 60% 40% 40%;
+            transition: all 0.3s;
+        }
+
+        .face-guide.detected::before {
+            border-color: rgba(16, 185, 129, 0.8);
+            border-style: solid;
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.35), inset 0 0 30px rgba(16, 185, 129, 0.15);
+        }
+
+        .corner {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-color: var(--accent);
+            border-style: solid;
+            border-width: 0;
+            pointer-events: none;
+        }
+
+        .corner-tl {
+            top: 12px;
+            left: 12px;
+            border-top-width: 2px;
+            border-left-width: 2px;
+        }
+
+        .corner-tr {
+            top: 12px;
+            right: 12px;
+            border-top-width: 2px;
+            border-right-width: 2px;
+        }
+
+        .corner-bl {
+            bottom: 12px;
+            left: 12px;
+            border-bottom-width: 2px;
+            border-left-width: 2px;
+        }
+
+        .corner-br {
+            bottom: 12px;
+            right: 12px;
+            border-bottom-width: 2px;
+            border-right-width: 2px;
+        }
+
+        @keyframes scanline {
+            0% {
+                transform: translateY(0%);
+                opacity: 0;
+            }
+
+            8% {
+                opacity: 1;
+            }
+
+            92% {
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+        }
+
+        .scan-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            height: 3px;
+            background: linear-gradient(to right, transparent, var(--accent), transparent);
+            box-shadow: 0 0 20px var(--accent);
+            animation: scanline 1.8s ease-in-out infinite;
+        }
+
+        .result-frame {
+            position: relative;
+            aspect-ratio: 35/45;
+            background: #1a1614;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow:
+                inset 0 0 0 1px rgba(245, 158, 11, 0.2),
+                0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .result-frame canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .color-swatch {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            position: relative;
+            padding: 0;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+
+        .color-swatch.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(245, 158, 11, 0.6);
+            transition: transform 0.15s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.6;
+                transform: scale(0.9);
+            }
+        }
+
+        .pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-rec {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        .toast {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            padding: 12px 22px;
+            background: rgba(20, 17, 15, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--fg);
+            font-weight: 500;
+            z-index: 1000;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.success {
+            border-color: rgba(16, 185, 129, 0.4);
+        }
+
+        .toast.error {
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid rgba(245, 158, 11, 0.2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .film-strip {
+            height: 22px;
+            background: rgba(245, 158, 11, 0.025);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .film-strip::before,
+        .film-strip::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background-image: radial-gradient(circle, var(--bg) 2.5px, transparent 3px);
+            background-size: 18px 12px;
+            background-repeat: repeat-x;
+        }
+
+        .film-strip::before {
+            top: 3px;
+        }
+
+        .film-strip::after {
+            bottom: 3px;
+        }
+
+        .file-input {
+            position: absolute;
+            width: 0;
+            height: 0;
+            opacity: 0;
+        }
+
+        .drop-zone {
+            border: 2px dashed rgba(245, 158, 11, 0.3);
+            border-radius: 12px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .drop-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .accent-text {
+            color: var(--accent-2);
+            text-shadow: 0 0 40px rgba(245, 158, 11, 0.35);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Live indicator */
+        .live-indicator {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+        }
+
+        .live-indicator::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse-rec 1.5s infinite;
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .hero-title {
+                font-size: 3rem !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="toast" class="toast"></div>
+
+    <div class="relative z-10 min-h-screen">
+
+        <!-- Header -->
+        <header class="border-b border-[var(--border)] bg-[rgba(10,9,8,0.7)] backdrop-blur-xl sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-gradient-to-br from-[var(--accent-2)] to-[var(--accent-3)] flex items-center justify-center">
+                            <i class="fa-solid fa-id-card text-[var(--bg)] text-lg"></i>
+                        </div>
+                        <div class="absolute -inset-1 rounded-lg bg-[var(--accent)] opacity-20 blur-md -z-10"></div>
+                    </div>
+                    <div>
+                        <h1 class="font-display text-2xl leading-none">PASSPORT STUDIO</h1>
+                        <p class="text-[10px] text-[var(--muted)] tracking-[0.2em] uppercase mt-1">Pro ID Photo
+                            Generator</p>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center gap-6 text-sm">
+                    <div class="flex items-center gap-2 text-[var(--muted)]">
+                        <span id="modelStatus" class="w-2 h-2 rounded-full bg-[var(--accent)] pulse"></span>
+                        <span id="modelStatusText">Loading AI models...</span>
+                    </div>
+                    <div class="text-[var(--muted)]">
+                        <span class="text-[var(--fg)] font-semibold">35×45mm</span> · 300 DPI
+                    </div>
+                </div>
+            </div>
+            <div class="film-strip"></div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-6 py-8">
+
+            <!-- Hero -->
+            <div class="mb-10 text-center md:text-left">
+                <h2 class="hero-title font-display text-6xl md:text-7xl leading-[0.95] mb-4">
+                    Studio-grade ID photos.<br>
+                    <span class="accent-text">Right in your browser.</span>
+                </h2>
+                <p class="text-[var(--muted)] max-w-2xl text-base md:text-lg">
+                    Capture or upload. We detect your face, swap the background, enhance details, and color-grade — all
+                    locally. No uploads, no waiting, no servers.
+                </p>
+            </div>
+
+            <!-- Source + Result -->
+            <div class="grid main-grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+                <!-- Source panel -->
+                <section class="glass p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-display text-2xl">SOURCE</h3>
+                        <div class="flex gap-1">
+                            <button id="tabCamera" class="tab-btn active px-4 py-2 text-sm font-semibold">
+                                <i class="fa-solid fa-camera mr-2"></i>Camera
+                            </button>
+                            <button id="tabUpload" class="tab-btn px-4 py-2 text-sm font-semibold">
+                                <i class="fa-solid fa-upload mr-2"></i>Upload
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Camera view -->
+                    <div id="cameraView" class="webcam-container">
+                        <video id="video" autoplay playsinline muted></video>
+                        <div id="faceGuide" class="face-guide"></div>
+                        <div class="corner corner-tl"></div>
+                        <div class="corner corner-tr"></div>
+                        <div class="corner corner-bl"></div>
+                        <div class="corner corner-br"></div>
+                        <div id="scanLine" class="scan-line hidden"></div>
+                        <div id="liveIndicator" class="live-indicator hidden">LIVE</div>
+                        <div id="cameraOff"
+                            class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-black">
+                            <div
+                                class="w-20 h-20 rounded-full bg-[rgba(245,158,11,0.1)] flex items-center justify-center mb-4">
+                                <i class="fa-solid fa-camera text-3xl text-[var(--accent)]"></i>
+                            </div>
+                            <p class="text-[var(--fg)] font-semibold mb-2">Camera is off</p>
+                            <p class="text-[var(--muted)] text-sm mb-4 max-w-xs">Activate your webcam to capture a
+                                passport photo with live face tracking</p>
+                            <button id="startCamera" class="btn-primary px-6 py-3 rounded-lg text-sm">
+                                <i class="fa-solid fa-power-off mr-2"></i>Start Camera
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Upload view -->
+                    <div id="uploadView" class="hidden">
+                        <label for="fileInput" class="drop-zone block">
+                            <div class="aspect-[4/3] flex flex-col items-center justify-center text-center p-6">
+                                <div
+                                    class="w-20 h-20 rounded-full bg-[rgba(245,158,11,0.1)] flex items-center justify-center mb-4">
+                                    <i class="fa-solid fa-cloud-arrow-up text-3xl text-[var(--accent)]"></i>
+                                </div>
+                                <p class="text-[var(--fg)] font-semibold mb-1">Drop image here or click to browse</p>
+                                <p class="text-[var(--muted)] text-sm">JPG, PNG, WebP — up to 10MB</p>
+                            </div>
+                        </label>
+                        <input type="file" id="fileInput" accept="image/*" class="file-input">
+                        <div id="uploadPreview" class="hidden mt-4 relative rounded-xl overflow-hidden">
+                            <img id="uploadImg" class="w-full block" alt="Uploaded">
+                            <button id="clearUpload"
+                                class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/70 backdrop-blur hover:bg-black/90 flex items-center justify-center transition">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div class="mt-4 grid grid-cols-2 gap-3">
+                        <button id="captureBtn" class="btn-primary px-4 py-3 rounded-lg text-sm" disabled>
+                            <i class="fa-solid fa-circle-dot mr-2"></i>Capture Photo
+                        </button>
+                        <button id="processBtn" class="btn-secondary px-4 py-3 rounded-lg text-sm" disabled>
+                            <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Process
+                        </button>
+                    </div>
+                    <p class="text-xs text-[var(--muted)] mt-3 leading-relaxed">
+                        <i class="fa-solid fa-circle-info mr-1 text-[var(--accent)]"></i>
+                        Face is auto-centered. Head occupies ~75% of frame per ICAO passport standard.
+                    </p>
+                </section>
+
+                <!-- Result panel -->
+                <section class="glass p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-display text-2xl">RESULT</h3>
+                        <div class="text-xs text-[var(--muted)] tracking-[0.2em] uppercase">600 × 772 px</div>
+                    </div>
+
+                    <div class="result-frame">
+                        <canvas id="resultCanvas" width="600" height="772"></canvas>
+                        <div id="emptyState"
+                            class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                            <div
+                                class="w-20 h-20 rounded-full bg-[rgba(245,158,11,0.05)] flex items-center justify-center mb-4">
+                                <i class="fa-solid fa-image text-3xl text-[var(--muted)]"></i>
+                            </div>
+                            <p class="text-[var(--muted)] text-sm">Your passport photo will appear here</p>
+                        </div>
+                        <div id="processingOverlay"
+                            class="hidden absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6">
+                            <div class="spinner mb-3"></div>
+                            <p id="processingText" class="text-sm font-semibold">Processing...</p>
+                            <p class="text-xs text-[var(--muted)] mt-1">Do not close this tab</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-3 gap-3">
+                        <button id="downloadBtn" class="btn-primary px-4 py-3 rounded-lg text-sm col-span-2" disabled>
+                            <i class="fa-solid fa-download mr-2"></i>Download
+                        </button>
+                        <button id="retakeBtn" class="btn-secondary px-4 py-3 rounded-lg text-sm" disabled>
+                            <i class="fa-solid fa-rotate-right mr-2"></i>Retake
+                        </button>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-3 gap-3 text-center">
+                        <div class="bg-[rgba(255,255,255,0.025)] rounded-lg p-3 border border-[var(--border)]">
+                            <div class="text-[10px] text-[var(--muted)] uppercase tracking-widest mb-1">Size</div>
+                            <div class="font-display text-lg">35×45mm</div>
+                        </div>
+                        <div class="bg-[rgba(255,255,255,0.025)] rounded-lg p-3 border border-[var(--border)]">
+                            <div class="text-[10px] text-[var(--muted)] uppercase tracking-widest mb-1">Head</div>
+                            <div class="font-display text-lg">70-80%</div>
+                        </div>
+                        <div class="bg-[rgba(255,255,255,0.025)] rounded-lg p-3 border border-[var(--border)]">
+                            <div class="text-[10px] text-[var(--muted)] uppercase tracking-widest mb-1">Format</div>
+                            <div class="font-display text-lg">PNG</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Controls -->
+            <section class="glass p-6 mb-8">
+                <div class="flex items-center justify-between mb-5">
+                    <h3 class="font-display text-2xl">CONTROLS</h3>
+                    <button id="resetControls"
+                        class="text-xs text-[var(--muted)] hover:text-[var(--accent)] transition px-3 py-1.5 rounded-md border border-[var(--border)]">
+                        <i class="fa-solid fa-arrow-rotate-left mr-1"></i>Reset to defaults
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div>
+                        <label
+                            class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Background
+                            Color</label>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <button class="color-swatch active" data-color="#1e63d6" style="background:#1e63d6"
+                                title="Standard Blue"></button>
+                            <button class="color-swatch" data-color="#2563eb" style="background:#2563eb"
+                                title="Royal Blue"></button>
+                            <button class="color-swatch" data-color="#0e7490" style="background:#0e7490"
+                                title="Cyan"></button>
+                            <button class="color-swatch" data-color="#dc2626" style="background:#dc2626"
+                                title="Red"></button>
+                            <button class="color-swatch" data-color="#ffffff" style="background:#ffffff"
+                                title="White"></button>
+                            <button class="color-swatch" data-color="#9ca3af" style="background:#9ca3af"
+                                title="Grey"></button>
+                            <button class="color-swatch" data-color="#065f46" style="background:#065f46"
+                                title="Green"></button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="color" id="bgColorPicker" value="#1e63d6"
+                                class="w-9 h-9 rounded cursor-pointer bg-transparent border border-[var(--border)]">
+                            <input type="text" id="bgColorText" value="#1e63d6"
+                                class="flex-1 bg-[rgba(255,255,255,0.04)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[var(--accent)]">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label
+                            class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Crop
+                            & Position</label>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Zoom (Head Size)</span>
+                                    <span id="zoomVal" class="text-[var(--accent-2)] font-mono">100%</span>
+                                </div>
+                                <input type="range" id="zoom" min="0.5" max="2.0" step="0.05" value="1.0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Move Up / Down</span>
+                                    <span id="offsetYVal" class="text-[var(--accent-2)] font-mono">0%</span>
+                                </div>
+                                <input type="range" id="offsetY" min="-100" max="100" step="1" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Move Left / Right</span>
+                                    <span id="offsetXVal" class="text-[var(--accent-2)] font-mono">0%</span>
+                                </div>
+                                <input type="range" id="offsetX" min="-100" max="100" step="1" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label
+                            class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Enhancement</label>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Brightness</span>
+                                    <span id="brightnessVal" class="text-[var(--accent-2)] font-mono">+0</span>
+                                </div>
+                                <input type="range" id="brightness" min="-50" max="50" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Contrast</span>
+                                    <span id="contrastVal" class="text-[var(--accent-2)] font-mono">+0</span>
+                                </div>
+                                <input type="range" id="contrast" min="-50" max="50" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Sharpen</span>
+                                    <span id="sharpenVal" class="text-[var(--accent-2)] font-mono">0%</span>
+                                </div>
+                                <input type="range" id="sharpen" min="0" max="100" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label
+                            class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Color
+                            Grade</label>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Warmth</span>
+                                    <span id="warmthVal" class="text-[var(--accent-2)] font-mono">+0</span>
+                                </div>
+                                <input type="range" id="warmth" min="-50" max="50" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Saturation</span>
+                                    <span id="saturationVal" class="text-[var(--accent-2)] font-mono">+0</span>
+                                </div>
+                                <input type="range" id="saturation" min="-50" max="50" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Intensity</span>
+                                    <span id="intensityVal" class="text-[var(--accent-2)] font-mono">0%</span>
+                                </div>
+                                <input type="range" id="intensity" min="0" max="100" value="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Info -->
+            <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="glass p-6">
+                    <div class="w-10 h-10 rounded-lg bg-[rgba(245,158,11,0.1)] flex items-center justify-center mb-3">
+                        <i class="fa-solid fa-face-smile text-[var(--accent-2)]"></i>
+                    </div>
+                    <h4 class="font-semibold mb-2">Face Detection</h4>
+                    <p class="text-sm text-[var(--muted)] leading-relaxed">MediaPipe AI locates your face and centers it
+                        per ICAO guidelines — head occupies 70-80% of the frame height, eyes positioned in the upper
+                        third.</p>
+                </div>
+                <div class="glass p-6">
+                    <div class="w-10 h-10 rounded-lg bg-[rgba(245,158,11,0.1)] flex items-center justify-center mb-3">
+                        <i class="fa-solid fa-scissors text-[var(--accent-2)]"></i>
+                    </div>
+                    <h4 class="font-semibold mb-2">Background Removal</h4>
+                    <p class="text-sm text-[var(--muted)] leading-relaxed">Selfie segmentation isolates you from
+                        surroundings with pixel-level precision. Replace with any solid color — blue for official use.
+                    </p>
+                </div>
+                <div class="glass p-6">
+                    <div class="w-10 h-10 rounded-lg bg-[rgba(245,158,11,0.1)] flex items-center justify-center mb-3">
+                        <i class="fa-solid fa-wand-sparkles text-[var(--accent-2)]"></i>
+                    </div>
+                    <h4 class="font-semibold mb-2">Cinematic Grade</h4>
+                    <p class="text-sm text-[var(--muted)] leading-relaxed">Subtle S-curve contrast, warm skin tones, and
+                        a gentle teal-orange split for that studio-quality finish without looking over-processed.</p>
+                </div>
+            </section>
+
+        </main>
+
+        <footer class="border-t border-[var(--border)] py-6">
+            <div
+                class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-[var(--muted)]">
+                <div><span class="text-[var(--fg)] font-semibold">Passport Studio</span> — All processing happens
+                    locally in your browser. <span class="mx-2 opacity-30">|</span> Developed by Ahmed Ali</div>
+                <div class="flex gap-4">
+                    <span><i class="fa-solid fa-shield-halved mr-2 text-[var(--accent)]"></i>No upload</span>
+                    <span><i class="fa-solid fa-bolt mr-2 text-[var(--accent)]"></i>Instant</span>
+                    <span><i class="fa-solid fa-lock mr-2 text-[var(--accent)]"></i>Private</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // ========== STATE ==========
+        const state = {
+            modelsLoaded: false,
+            cameraActive: false,
+            stream: null,
+            currentSource: null,      // Image element of captured/uploaded image
+            currentMode: 'camera',    // 'camera' or 'upload'
+            bgColor: '#1e63d6',
+            cutoutCanvas: null,       // Canvas with person cutout (transparent bg)
+            cutoutInfo: null,         // { cropX, cropY, cropW, cropH }
+            settings: {
+                brightness: 0,
+                contrast: 0,
+                sharpen: 0,
+                warmth: 0,
+                saturation: 0,
+                intensity: 0
+            },
+            adjustments: {
+                zoom: 1.0,
+                offsetY: 0,
+                offsetX: 0
+            }
+        };
+
+        // ========== DOM ==========
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('resultCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const fileInput = document.getElementById('fileInput');
+        const uploadImg = document.getElementById('uploadImg');
+        const uploadPreview = document.getElementById('uploadPreview');
+        const cameraView = document.getElementById('cameraView');
+        const uploadView = document.getElementById('uploadView');
+        const cameraOff = document.getElementById('cameraOff');
+        const faceGuide = document.getElementById('faceGuide');
+        const emptyState = document.getElementById('emptyState');
+        const processingOverlay = document.getElementById('processingOverlay');
+        const scanLine = document.getElementById('scanLine');
+        const liveIndicator = document.getElementById('liveIndicator');
+        const dropZone = document.querySelector('.drop-zone');
+
+        // ========== UTILS ==========
+        function toast(message, type = 'info') {
+            const t = document.getElementById('toast');
+            const icon = type === 'success' ? 'fa-circle-check' :
+                type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-info';
+            t.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+            t.className = `toast show ${type}`;
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => t.classList.remove('show'), 3200);
+        }
+
+        function clamp(v) { return Math.max(0, Math.min(255, v)); }
+
+        // Smooth S-curve for cinematic contrast
+        function sCurve(x) {
+            if (x <= 0) return 0;
+            if (x >= 1) return 1;
+            const a = 2.4;
+            const xa = Math.pow(x, a);
+            const oxa = Math.pow(1 - x, a);
+            return xa / (xa + oxa);
+        }
+
+        // Draw image section that can safely exceed the source canvas boundary by padding background
+        function drawSourceToDestination(ctx, srcCanvas, sx, sy, sw, sh, dx, dy, dw, dh) {
+            const srcW = srcCanvas.width;
+            const srcH = srcCanvas.height;
+
+            const sLeft = Math.max(0, sx);
+            const sTop = Math.max(0, sy);
+            const sRight = Math.min(srcW, sx + sw);
+            const sBottom = Math.min(srcH, sy + sh);
+
+            if (sLeft >= sRight || sTop >= sBottom) {
+                return; // Nothing to draw
+            }
+
+            const intersectW = sRight - sLeft;
+            const intersectH = sBottom - sTop;
+
+            const scaleX = dw / sw;
+            const scaleY = dh / sh;
+
+            const dLeft = dx + (sLeft - sx) * scaleX;
+            const dTop = dy + (sTop - sy) * scaleY;
+            const dWidth = intersectW * scaleX;
+            const dHeight = intersectH * scaleY;
+
+            ctx.drawImage(srcCanvas, sLeft, sTop, intersectW, intersectH, dLeft, dTop, dWidth, dHeight);
+        }
+
+        // ========== MEDIAPIPE ==========
+        let faceDetector = null;
+        let selfieSegmenter = null;
+
+        async function loadModels() {
+            try {
+                faceDetector = new FaceDetection({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+                });
+                faceDetector.setOptions({
+                    model: 'short',
+                    minDetectionConfidence: 0.5
+                });
+
+                selfieSegmenter = new SelfieSegmentation({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
+                });
+                selfieSegmenter.setOptions({
+                    modelSelection: 1,
+                    selfieMode: false
+                });
+
+                // Warm up both models
+                await faceDetector.initialize();
+                await selfieSegmenter.initialize();
+
+                state.modelsLoaded = true;
+                const statusEl = document.getElementById('modelStatus');
+                statusEl.classList.remove('pulse');
+                statusEl.style.background = 'var(--success)';
+                document.getElementById('modelStatusText').textContent = 'AI ready';
+                toast('AI models loaded — ready to shoot', 'success');
+            } catch (err) {
+                console.error(err);
+                document.getElementById('modelStatusText').textContent = 'Model load failed';
+                document.getElementById('modelStatus').style.background = 'var(--danger)';
+                toast('Failed to load AI models. Check your connection.', 'error');
+            }
+        }
+
+        function detectFaces(image) {
+            return new Promise((resolve, reject) => {
+                let resolved = false;
+                faceDetector.onResults((results) => {
+                    if (!resolved) { resolved = true; resolve(results); }
+                });
+                faceDetector.send({ image }).catch(reject);
+            });
+        }
+
+        function segmentImage(image) {
+            return new Promise((resolve, reject) => {
+                let resolved = false;
+                selfieSegmenter.onResults((results) => {
+                    if (!resolved) { resolved = true; resolve(results); }
+                });
+                selfieSegmenter.send({ image }).catch(reject);
+            });
+        }
+
+        // ========== CAMERA ==========
+        async function startCamera() {
+            if (!state.modelsLoaded) {
+                toast('AI models still loading, please wait...', 'error');
+                return;
+            }
+            try {
+                state.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 1280 }, height: { ideal: 960 }, facingMode: 'user' },
+                    audio: false
+                });
+                video.srcObject = state.stream;
+                await video.play();
+                state.cameraActive = true;
+                cameraOff.classList.add('hidden');
+                liveIndicator.classList.remove('hidden');
+                document.getElementById('captureBtn').disabled = false;
+                detectInLoop();
+                toast('Camera started — position your face in the guide', 'success');
+            } catch (err) {
+                console.error(err);
+                toast('Cannot access camera. Try upload instead.', 'error');
+            }
+        }
+
+        let lastDetectTime = 0;
+        function detectInLoop() {
+            if (!state.cameraActive) return;
+            const now = performance.now();
+            if (now - lastDetectTime > 120) { // ~8fps detection
+                lastDetectTime = now;
+                if (state.modelsLoaded && video.readyState >= 2) {
+                    detectFaces(video).then(results => {
+                        const detected = results.detections && results.detections.length > 0;
+                        faceGuide.classList.toggle('detected', detected);
+                    }).catch(() => { });
+                }
+            }
+            requestAnimationFrame(detectInLoop);
+        }
+
+        function stopCamera() {
+            if (state.stream) {
+                state.stream.getTracks().forEach(t => t.stop());
+                state.stream = null;
+            }
+            state.cameraActive = false;
+            cameraOff.classList.remove('hidden');
+            liveIndicator.classList.add('hidden');
+            faceGuide.classList.remove('detected');
+            document.getElementById('captureBtn').disabled = true;
+        }
+
+        // ========== CAPTURE & UPLOAD ==========
+        async function capturePhoto() {
+            if (!state.cameraActive) return;
+            const snapCanvas = document.createElement('canvas');
+            snapCanvas.width = video.videoWidth;
+            snapCanvas.height = video.videoHeight;
+            const snapCtx = snapCanvas.getContext('2d');
+            // Capture un-mirrored (true orientation)
+            snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
+
+            const img = new Image();
+            img.onload = async () => {
+                state.currentSource = img;
+                await processImage();
+            };
+            img.src = snapCanvas.toDataURL('image/png');
+        }
+
+        function handleUpload(file) {
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                toast('Please select an image file', 'error');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                toast('File too large (max 10MB)', 'error');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                uploadImg.onload = () => {
+                    uploadPreview.classList.remove('hidden');
+                    uploadPreview.classList.add('fade-in');
+                    state.currentSource = uploadImg;
+                    document.getElementById('processBtn').disabled = false;
+                    toast('Image loaded — click Process to continue', 'success');
+                };
+                uploadImg.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Downscale large source images for performance
+        function getOptimalSource(source) {
+            const maxDim = 1600;
+            const w = source.width || source.naturalWidth;
+            const h = source.height || source.naturalHeight;
+            if (Math.max(w, h) <= maxDim) return source;
+            const scale = maxDim / Math.max(w, h);
+            const c = document.createElement('canvas');
+            c.width = Math.round(w * scale);
+            c.height = Math.round(h * scale);
+            c.getContext('2d').drawImage(source, 0, 0, c.width, c.height);
+            return c;
+        }
+
+        // ========== MAIN PROCESSING ==========
+        async function processImage() {
+            if (!state.currentSource || !state.modelsLoaded) {
+                toast('Nothing to process yet', 'error');
+                return;
+            }
+            emptyState.classList.add('hidden');
+            processingOverlay.classList.remove('hidden');
+            scanLine.classList.remove('hidden');
+
+            try {
+                const source = getOptimalSource(state.currentSource);
+                const srcW = source.width || source.naturalWidth;
+                const srcH = source.height || source.naturalHeight;
+
+                // 1. Face detection
+                document.getElementById('processingText').textContent = 'Detecting face...';
+                const faceResults = await detectFaces(source);
+                let faceBox = null;
+                if (faceResults.detections && faceResults.detections.length > 0) {
+                    faceBox = faceResults.detections[0].boundingBox;
+                }
+
+                // 2. Selfie segmentation
+                document.getElementById('processingText').textContent = 'Removing background...';
+                const segResults = await segmentImage(source);
+
+                // 3. Build cutout (person pixels, transparent bg)
+                document.getElementById('processingText').textContent = 'Compositing...';
+                const cutout = document.createElement('canvas');
+                cutout.width = srcW;
+                cutout.height = srcH;
+                const cutoutCtx = cutout.getContext('2d');
+                cutoutCtx.drawImage(segResults.segmentationMask, 0, 0, srcW, srcH);
+                cutoutCtx.globalCompositeOperation = 'source-in';
+                cutoutCtx.drawImage(source, 0, 0, srcW, srcH);
+
+                // 4. Calculate crop rectangle (passport 35:45 ratio)
+                document.getElementById('processingText').textContent = 'Cropping to passport size...';
+                const targetAspect = 35 / 45;
+                let cropX, cropY, cropW, cropH;
+
+                if (faceBox) {
+                    const faceW = faceBox.width * srcW;
+                    const faceH = faceBox.height * srcH;
+                    const faceCx = faceBox.xCenter * srcW;
+                    const faceCy = faceBox.yCenter * srcH;
+
+                    // Estimate head height (face box ~ eyebrows-to-chin; head includes hair)
+                    const headHeight = faceH * 1.8;
+                    const frameHeight = headHeight / 0.60; // head = 60% of frame for safe headroom
+                    const frameWidth = frameHeight * targetAspect;
+
+                    // Position: face center ~50% from top of frame (perfectly centered vertically)
+                    cropX = faceCx - frameWidth / 2;
+                    cropY = faceCy - frameHeight * 0.50;
+                    cropW = frameWidth;
+                    cropH = frameHeight;
+                } else {
+                    // No face: center crop with passport aspect
+                    if (srcW / srcH > targetAspect) {
+                        cropH = srcH;
+                        cropW = cropH * targetAspect;
+                        cropX = (srcW - cropW) / 2;
+                        cropY = 0;
+                    } else {
+                        cropW = srcW;
+                        cropH = cropW / targetAspect;
+                        cropX = 0;
+                        cropY = (srcH - cropH) / 2;
+                    }
+                    toast('No face detected — used center crop', 'error');
+                }
+
+                state.cutoutCanvas = cutout;
+                state.cutoutInfo = { cropX, cropY, cropW, cropH };
+
+                // 5. Render final result
+                document.getElementById('processingText').textContent = 'Applying enhancements...';
+                renderResult();
+
+                processingOverlay.classList.add('hidden');
+                scanLine.classList.add('hidden');
+                document.getElementById('downloadBtn').disabled = false;
+                document.getElementById('retakeBtn').disabled = false;
+
+                toast('Photo ready — click Download', 'success');
+            } catch (err) {
+                console.error(err);
+                processingOverlay.classList.add('hidden');
+                scanLine.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                toast('Processing failed: ' + (err.message || 'unknown error'), 'error');
+            }
+        }
+
+        // ========== RENDER (re-runs on every control change) ==========
+        let renderQueued = false;
+        function queueRender() {
+            if (renderQueued || !state.cutoutCanvas) return;
+            renderQueued = true;
+            requestAnimationFrame(() => {
+                renderQueued = false;
+                renderResult();
+            });
+        }
+
+        function renderResult() {
+            if (!state.cutoutCanvas || !state.cutoutInfo) return;
+            let { cropX, cropY, cropW, cropH } = state.cutoutInfo;
+
+            canvas.width = 600;
+            canvas.height = Math.round(600 * 45 / 35); // ~772
+
+            // Apply zoom adjustment
+            const zoom = state.adjustments.zoom;
+            const newW = cropW / zoom;
+            const newH = cropH / zoom;
+            cropX = cropX + (cropW - newW) / 2;
+            cropY = cropY + (cropH - newH) / 2;
+            cropW = newW;
+            cropH = newH;
+
+            // Apply offsets (negative X shifts person right, positive Y shifts person up)
+            cropX -= (state.adjustments.offsetX / 100) * cropW;
+            cropY += (state.adjustments.offsetY / 100) * cropH;
+
+            // Fill background
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw cutout with safe cropping (handles out of boundary source coordinates)
+            drawSourceToDestination(ctx, state.cutoutCanvas, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+
+            // Enhancement pass
+            applyEnhancement();
+            // Sharpen pass
+            if (state.settings.sharpen > 0) applySharpen(state.settings.sharpen / 100);
+            // Color grade pass
+            applyColorGrading();
+        }
+
+        function applyEnhancement() {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            const brightness = state.settings.brightness;
+            const c = state.settings.contrast;
+            const contrastFactor = (259 * (c + 255)) / (255 * (259 - c));
+            const sat = 1 + state.settings.saturation / 100;
+
+            for (let i = 0; i < data.length; i += 4) {
+                let r = data[i] + brightness;
+                let g = data[i + 1] + brightness;
+                let b = data[i + 2] + brightness;
+
+                // Contrast
+                r = contrastFactor * (r - 128) + 128;
+                g = contrastFactor * (g - 128) + 128;
+                b = contrastFactor * (b - 128) + 128;
+
+                // Saturation
+                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                r = gray + (r - gray) * sat;
+                g = gray + (g - gray) * sat;
+                b = gray + (b - gray) * sat;
+
+                data[i] = clamp(r);
+                data[i + 1] = clamp(g);
+                data[i + 2] = clamp(b);
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function applySharpen(amount) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const src = imageData.data;
+            const dst = new Uint8ClampedArray(src);
+            const center = 1 + amount * 4;
+            const side = -amount;
+
+            for (let y = 1; y < h - 1; y++) {
+                for (let x = 1; x < w - 1; x++) {
+                    const idx = (y * w + x) * 4;
+                    for (let c = 0; c < 3; c++) {
+                        const i = idx + c;
+                        const val = src[i] * center
+                            + src[i - 4] * side
+                            + src[i + 4] * side
+                            + src[i - w * 4] * side
+                            + src[i + w * 4] * side;
+                        dst[i] = clamp(val);
+                    }
+                }
+            }
+            ctx.putImageData(new ImageData(dst, w, h), 0, 0);
+        }
+
+        function applyColorGrading() {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            const warmth = state.settings.warmth;
+            const intensity = state.settings.intensity / 100;
+
+            for (let i = 0; i < data.length; i += 4) {
+                let r = data[i];
+                let g = data[i + 1];
+                let b = data[i + 2];
+
+                const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                // S-curve for cinematic contrast
+                const curved = sCurve(lum);
+                const lumDiff = (curved - lum) * 255 * intensity * 0.4;
+                r += lumDiff; g += lumDiff; b += lumDiff;
+
+                // Warm tint
+                r += warmth * intensity * 0.4;
+                b -= warmth * intensity * 0.4;
+
+                // Subtle teal-orange split (cinematic)
+                if (lum < 0.4) {
+                    // Shadows: lift shadows slightly toward teal
+                    b += 4 * intensity;
+                    g += 1 * intensity;
+                } else if (lum > 0.6) {
+                    // Highlights: push slightly warm
+                    r += 4 * intensity;
+                }
+
+                data[i] = clamp(r);
+                data[i + 1] = clamp(g);
+                data[i + 2] = clamp(b);
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        // ========== DOWNLOAD ==========
+        function download() {
+            const link = document.createElement('a');
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            link.download = `passport-photo-${timestamp}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            toast('Photo downloaded', 'success');
+        }
+
+        // ========== UI WIRING ==========
+        function setTab(tab) {
+            state.currentMode = tab;
+            document.getElementById('tabCamera').classList.toggle('active', tab === 'camera');
+            document.getElementById('tabUpload').classList.toggle('active', tab === 'upload');
+            cameraView.classList.toggle('hidden', tab !== 'camera');
+            uploadView.classList.toggle('hidden', tab !== 'upload');
+            if (tab === 'camera') {
+                document.getElementById('captureBtn').disabled = !state.cameraActive;
+                document.getElementById('processBtn').disabled = true;
+            } else {
+                document.getElementById('captureBtn').disabled = true;
+                document.getElementById('processBtn').disabled = !state.currentSource;
+            }
+        }
+
+        function updateBgColor(color) {
+            state.bgColor = color;
+            document.getElementById('bgColorPicker').value = color;
+            document.getElementById('bgColorText').value = color;
+            document.querySelectorAll('.color-swatch').forEach(s => {
+                s.classList.toggle('active', s.dataset.color?.toLowerCase() === color.toLowerCase());
+            });
+            saveState();
+            queueRender();
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem('passport_settings', JSON.stringify(state.settings));
+                localStorage.setItem('passport_adjustments', JSON.stringify(state.adjustments));
+                localStorage.setItem('passport_bgColor', state.bgColor);
+            } catch (e) {
+                console.error('Failed to save state to localStorage', e);
+            }
+        }
+
+        function loadState() {
+            try {
+                const savedSettings = localStorage.getItem('passport_settings');
+                if (savedSettings) {
+                    Object.assign(state.settings, JSON.parse(savedSettings));
+                }
+                const savedAdjustments = localStorage.getItem('passport_adjustments');
+                if (savedAdjustments) {
+                    Object.assign(state.adjustments, JSON.parse(savedAdjustments));
+                }
+                const savedBgColor = localStorage.getItem('passport_bgColor');
+                if (savedBgColor) {
+                    state.bgColor = savedBgColor;
+                }
+            } catch (e) {
+                console.error('Failed to load state from localStorage', e);
+            }
+        }
+
+        function applyStateToUI() {
+            // Bg Color
+            updateBgColor(state.bgColor);
+
+            // Settings
+            for (const [key, val] of Object.entries(state.settings)) {
+                const input = document.getElementById(key);
+                const display = document.getElementById(key + 'Val');
+                if (input) input.value = val;
+                if (display) {
+                    if (key === 'sharpen' || key === 'intensity') {
+                        display.textContent = val + '%';
+                    } else {
+                        display.textContent = val >= 0 ? '+' + val : val;
+                    }
+                }
+            }
+
+            // Adjustments
+            document.getElementById('zoom').value = state.adjustments.zoom;
+            document.getElementById('zoomVal').textContent = Math.round(state.adjustments.zoom * 100) + '%';
+            document.getElementById('offsetY').value = state.adjustments.offsetY;
+            document.getElementById('offsetYVal').textContent = (state.adjustments.offsetY >= 0 ? '+' : '') + state.adjustments.offsetY + '%';
+            document.getElementById('offsetX').value = state.adjustments.offsetX;
+            document.getElementById('offsetXVal').textContent = (state.adjustments.offsetX >= 0 ? '+' : '') + state.adjustments.offsetX + '%';
+        }
+
+        function updateSetting(key, value, displayValue) {
+            state.settings[key] = parseInt(value);
+            const valEl = document.getElementById(key + 'Val');
+            if (valEl) valEl.textContent = displayValue !== undefined ? displayValue : (value >= 0 ? '+' + value : value);
+            queueRender();
+        }
+
+        function resetControls() {
+            state.settings = { brightness: 0, contrast: 0, sharpen: 0, warmth: 0, saturation: 0, intensity: 0 };
+            state.adjustments = { zoom: 1.0, offsetY: 0, offsetX: 0 };
+            document.getElementById('brightness').value = 0;
+            document.getElementById('contrast').value = 0;
+            document.getElementById('sharpen').value = 0;
+            document.getElementById('warmth').value = 0;
+            document.getElementById('saturation').value = 0;
+            document.getElementById('intensity').value = 0;
+            document.getElementById('brightnessVal').textContent = '+0';
+            document.getElementById('contrastVal').textContent = '+0';
+            document.getElementById('sharpenVal').textContent = '0%';
+            document.getElementById('warmthVal').textContent = '+0';
+            document.getElementById('saturationVal').textContent = '+0';
+            document.getElementById('intensityVal').textContent = '0%';
+
+            document.getElementById('zoom').value = 1.0;
+            document.getElementById('offsetY').value = 0;
+            document.getElementById('offsetX').value = 0;
+            document.getElementById('zoomVal').textContent = '100%';
+            document.getElementById('offsetYVal').textContent = '0%';
+            document.getElementById('offsetXVal').textContent = '0%';
+
+            updateBgColor('#1e63d6');
+            toast('Controls reset to defaults', 'success');
+        }
+
+        function retake() {
+            state.cutoutCanvas = null;
+            state.cutoutInfo = null;
+            state.currentSource = null;
+            ctx.fillStyle = '#1a1614';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            emptyState.classList.remove('hidden');
+            document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('retakeBtn').disabled = true;
+            uploadPreview.classList.add('hidden');
+            uploadImg.src = '';
+            document.getElementById('processBtn').disabled = true;
+            toast('Ready for next photo', 'success');
+        }
+
+        // ========== EVENT LISTENERS ==========
+        document.getElementById('startCamera').addEventListener('click', startCamera);
+        document.getElementById('captureBtn').addEventListener('click', capturePhoto);
+        document.getElementById('processBtn').addEventListener('click', processImage);
+        document.getElementById('downloadBtn').addEventListener('click', download);
+        document.getElementById('retakeBtn').addEventListener('click', retake);
+        document.getElementById('resetControls').addEventListener('click', resetControls);
+
+        document.getElementById('tabCamera').addEventListener('click', () => setTab('camera'));
+        document.getElementById('tabUpload').addEventListener('click', () => setTab('upload'));
+
+        // File upload
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) handleUpload(e.target.files[0]);
+        });
+
+        // Drag and drop
+        ['dragover', 'dragenter'].forEach(ev => {
+            dropZone.addEventListener(ev, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'dragend'].forEach(ev => {
+            dropZone.addEventListener(ev, () => dropZone.classList.remove('dragover'));
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files[0]) handleUpload(e.dataTransfer.files[0]);
+        });
+
+        document.getElementById('clearUpload').addEventListener('click', () => {
+            uploadPreview.classList.add('hidden');
+            uploadImg.src = '';
+            state.currentSource = null;
+            document.getElementById('processBtn').disabled = true;
+            fileInput.value = '';
+        });
+
+        // Background color
+        document.querySelectorAll('.color-swatch').forEach(swatch => {
+            swatch.addEventListener('click', () => updateBgColor(swatch.dataset.color));
+        });
+        document.getElementById('bgColorPicker').addEventListener('input', (e) => updateBgColor(e.target.value));
+        document.getElementById('bgColorText').addEventListener('change', (e) => {
+            const v = e.target.value.trim();
+            if (/^#[0-9a-fA-F]{6}$/.test(v)) updateBgColor(v);
+            else e.target.value = state.bgColor;
+        });
+
+        // Sliders
+        document.getElementById('zoom').addEventListener('input', (e) => {
+            const v = parseFloat(e.target.value);
+            state.adjustments.zoom = v;
+            document.getElementById('zoomVal').textContent = Math.round(v * 100) + '%';
+            saveState();
+            queueRender();
+        });
+        document.getElementById('offsetY').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.adjustments.offsetY = v;
+            document.getElementById('offsetYVal').textContent = (v >= 0 ? '+' : '') + v + '%';
+            saveState();
+            queueRender();
+        });
+        document.getElementById('offsetX').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.adjustments.offsetX = v;
+            document.getElementById('offsetXVal').textContent = (v >= 0 ? '+' : '') + v + '%';
+            saveState();
+            queueRender();
+        });
+        document.getElementById('brightness').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.settings.brightness = v;
+            document.getElementById('brightnessVal').textContent = v >= 0 ? '+' + v : v;
+            saveState();
+            queueRender();
+        });
+        document.getElementById('contrast').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.settings.contrast = v;
+            document.getElementById('contrastVal').textContent = v >= 0 ? '+' + v : v;
+            saveState();
+            queueRender();
+        });
+        document.getElementById('sharpen').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.settings.sharpen = v;
+            document.getElementById('sharpenVal').textContent = v + '%';
+            saveState();
+            queueRender();
+        });
+        document.getElementById('warmth').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.settings.warmth = v;
+            document.getElementById('warmthVal').textContent = v >= 0 ? '+' + v : v;
+            saveState();
+            queueRender();
+        });
+        document.getElementById('saturation').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.settings.saturation = v;
+            document.getElementById('saturationVal').textContent = v >= 0 ? '+' + v : v;
+            saveState();
+            queueRender();
+        });
+        document.getElementById('intensity').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.settings.intensity = v;
+            document.getElementById('intensityVal').textContent = v + '%';
+            saveState();
+            queueRender();
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.code === 'Space' && state.cameraActive && state.currentMode === 'camera') {
+                e.preventDefault();
+                capturePhoto();
+            } else if (e.key === 'd' && !document.getElementById('downloadBtn').disabled) {
+                download();
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+        });
+
+        // ========== INIT ==========
+        window.addEventListener('load', () => {
+            loadState();
+            applyStateToUI();
+            loadModels();
+        });
+    </script>
+</body>
+
+</html>
