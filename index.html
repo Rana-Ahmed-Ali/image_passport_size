@@ -692,10 +692,16 @@
             <section class="glass p-6 mb-8">
                 <div class="flex items-center justify-between mb-5">
                     <h3 class="font-display text-2xl">CONTROLS</h3>
-                    <button id="resetControls"
-                        class="text-xs text-[var(--muted)] hover:text-[var(--accent)] transition px-3 py-1.5 rounded-md border border-[var(--border)]">
-                        <i class="fa-solid fa-arrow-rotate-left mr-1"></i>Reset to defaults
-                    </button>
+                    <div class="flex gap-2">
+                        <button id="autoEnhanceBtn"
+                            class="text-xs text-[var(--bg)] bg-gradient-to-r from-[var(--accent-2)] to-[var(--accent-3)] hover:shadow-[0_0_15px_rgba(245,158,11,0.4)] transition px-3 py-1.5 rounded-md font-semibold">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Auto-Studio
+                        </button>
+                        <button id="resetControls"
+                            class="text-xs text-[var(--muted)] hover:text-[var(--accent)] transition px-3 py-1.5 rounded-md border border-[var(--border)]">
+                            <i class="fa-solid fa-arrow-rotate-left mr-1"></i>Reset
+                        </button>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -773,6 +779,13 @@
                                     <span id="contrastVal" class="text-[var(--accent-2)] font-mono">+0</span>
                                 </div>
                                 <input type="range" id="contrast" min="-50" max="50" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Skin Smooth</span>
+                                    <span id="skinSmoothVal" class="text-[var(--accent-2)] font-mono">0%</span>
+                                </div>
+                                <input type="range" id="skinSmooth" min="0" max="100" value="0">
                             </div>
                             <div>
                                 <div class="flex justify-between text-xs mb-1.5">
@@ -875,6 +888,7 @@
             settings: {
                 brightness: 0,
                 contrast: 0,
+                skinSmooth: 0,
                 sharpen: 0,
                 warmth: 0,
                 saturation: 0,
@@ -1110,18 +1124,9 @@
             reader.readAsDataURL(file);
         }
 
-        // Downscale large source images for performance
+        // We no longer downscale the source to preserve maximum pixel quality for the final crop
         function getOptimalSource(source) {
-            const maxDim = 1600;
-            const w = source.width || source.naturalWidth;
-            const h = source.height || source.naturalHeight;
-            if (Math.max(w, h) <= maxDim) return source;
-            const scale = maxDim / Math.max(w, h);
-            const c = document.createElement('canvas');
-            c.width = Math.round(w * scale);
-            c.height = Math.round(h * scale);
-            c.getContext('2d').drawImage(source, 0, 0, c.width, c.height);
-            return c;
+            return source;
         }
 
         // ========== MAIN PROCESSING ==========
@@ -1136,8 +1141,9 @@
 
             try {
                 const source = getOptimalSource(state.currentSource);
-                const srcW = source.width || source.naturalWidth;
-                const srcH = source.height || source.naturalHeight;
+                // MUST prioritize naturalWidth, otherwise DOM elements return their CSS layout size!
+                const srcW = source.naturalWidth || source.videoWidth || source.width;
+                const srcH = source.naturalHeight || source.videoHeight || source.height;
 
                 // 1. Face detection
                 document.getElementById('processingText').textContent = 'Detecting face...';
@@ -1157,7 +1163,12 @@
                 cutout.width = srcW;
                 cutout.height = srcH;
                 const cutoutCtx = cutout.getContext('2d');
+                
+                // Add slight blur to mask to fix jagged/pixelated edges
+                cutoutCtx.filter = 'blur(1px)';
                 cutoutCtx.drawImage(segResults.segmentationMask, 0, 0, srcW, srcH);
+                cutoutCtx.filter = 'none';
+                
                 cutoutCtx.globalCompositeOperation = 'source-in';
                 cutoutCtx.drawImage(source, 0, 0, srcW, srcH);
 
@@ -1260,6 +1271,8 @@
 
             // Enhancement pass
             applyEnhancement();
+            // Skin smoothing pass
+            if (state.settings.skinSmooth > 0) applySkinSmoothing(state.settings.skinSmooth);
             // Sharpen pass
             if (state.settings.sharpen > 0) applySharpen(state.settings.sharpen / 100);
             // Color grade pass
@@ -1295,6 +1308,51 @@
                 data[i + 2] = clamp(b);
             }
             ctx.putImageData(imageData, 0, 0);
+        }
+
+        function applySkinSmoothing(amount) {
+            if (amount <= 0) return;
+            
+            const w = canvas.width;
+            const h = canvas.height;
+            
+            // Create blurred version for surface blur
+            const blurRadius = (amount / 100) * 8;
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.filter = `blur(${blurRadius}px)`;
+            tempCtx.drawImage(canvas, 0, 0);
+            
+            const origData = ctx.getImageData(0, 0, w, h);
+            const blurData = tempCtx.getImageData(0, 0, w, h);
+            const outData = new Uint8ClampedArray(origData.data);
+            
+            // Threshold for edge detection
+            const threshold = 30 + (amount * 0.4); 
+            
+            for (let i = 0; i < outData.length; i += 4) {
+                const r = origData.data[i];
+                const g = origData.data[i+1];
+                const b = origData.data[i+2];
+                
+                const br = blurData.data[i];
+                const bg = blurData.data[i+1];
+                const bb = blurData.data[i+2];
+                
+                // Calculate difference (edge map)
+                const diff = Math.abs(r - br) + Math.abs(g - bg) + Math.abs(b - bb);
+                
+                // If difference is small, it's a flat texture (like skin). If large, it's an edge (eyes/hair).
+                if (diff < threshold) {
+                    const mix = 1 - (diff / threshold);
+                    outData[i]   = r * (1 - mix) + br * mix;
+                    outData[i+1] = g * (1 - mix) + bg * mix;
+                    outData[i+2] = b * (1 - mix) + bb * mix;
+                }
+            }
+            ctx.putImageData(new ImageData(outData, w, h), 0, 0);
         }
 
         function applySharpen(amount) {
@@ -1437,7 +1495,7 @@
                 const display = document.getElementById(key + 'Val');
                 if (input) input.value = val;
                 if (display) {
-                    if (key === 'sharpen' || key === 'intensity') {
+                    if (key === 'skinSmooth' || key === 'sharpen' || key === 'intensity') {
                         display.textContent = val + '%';
                     } else {
                         display.textContent = val >= 0 ? '+' + val : val;
@@ -1462,16 +1520,18 @@
         }
 
         function resetControls() {
-            state.settings = { brightness: 0, contrast: 0, sharpen: 0, warmth: 0, saturation: 0, intensity: 0 };
+            state.settings = { brightness: 0, contrast: 0, skinSmooth: 0, sharpen: 0, warmth: 0, saturation: 0, intensity: 0 };
             state.adjustments = { zoom: 1.0, offsetY: 0, offsetX: 0 };
             document.getElementById('brightness').value = 0;
             document.getElementById('contrast').value = 0;
+            document.getElementById('skinSmooth').value = 0;
             document.getElementById('sharpen').value = 0;
             document.getElementById('warmth').value = 0;
             document.getElementById('saturation').value = 0;
             document.getElementById('intensity').value = 0;
             document.getElementById('brightnessVal').textContent = '+0';
             document.getElementById('contrastVal').textContent = '+0';
+            document.getElementById('skinSmoothVal').textContent = '0%';
             document.getElementById('sharpenVal').textContent = '0%';
             document.getElementById('warmthVal').textContent = '+0';
             document.getElementById('saturationVal').textContent = '+0';
@@ -1486,6 +1546,84 @@
 
             updateBgColor('#1e63d6');
             toast('Controls reset to defaults', 'success');
+        }
+
+        function clampVal(val, min, max) {
+            return Math.max(min, Math.min(max, val));
+        }
+
+        function autoEnhance() {
+            if (!state.cutoutCanvas || !state.cutoutInfo) {
+                toast('Please process a photo first', 'error');
+                return;
+            }
+
+            const { cropX, cropY, cropW, cropH } = state.cutoutInfo;
+            
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = cropW;
+            tempCanvas.height = cropH;
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+            
+            // Draw just the cropped part of the cutout (which has transparent background)
+            drawSourceToDestination(tempCtx, state.cutoutCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+            
+            const imageData = tempCtx.getImageData(0, 0, cropW, cropH);
+            const data = imageData.data;
+            
+            let totalLum = 0;
+            let pixelCount = 0;
+            let minLum = 255;
+            let maxLum = 0;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                // Only analyze non-transparent pixels (the person's face/body)
+                if (data[i + 3] > 128) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                    
+                    totalLum += lum;
+                    pixelCount++;
+                    
+                    if (lum < minLum) minLum = lum;
+                    if (lum > maxLum) maxLum = lum;
+                }
+            }
+            
+            if (pixelCount === 0) return;
+            
+            const avgLum = totalLum / pixelCount;
+            
+            // Target luminance for a well-lit studio photo
+            const targetLum = 135;
+            let brightnessAdjust = targetLum - avgLum;
+            brightnessAdjust = clampVal(brightnessAdjust, -30, 40);
+            
+            // Contrast adjustment based on dynamic range
+            const dynamicRange = maxLum - minLum;
+            let contrastAdjust = 0;
+            if (dynamicRange < 150) { 
+                contrastAdjust = 15;
+            } else if (dynamicRange > 230) { 
+                contrastAdjust = -5;
+            }
+            
+            // Apply calculated and standard studio settings
+            state.settings.brightness = Math.round(brightnessAdjust);
+            state.settings.contrast = contrastAdjust;
+            state.settings.skinSmooth = 30;
+            state.settings.sharpen = 15;
+            state.settings.warmth = 8;
+            state.settings.saturation = 5;
+            state.settings.intensity = 15;
+            
+            applyStateToUI();
+            saveState();
+            queueRender();
+            
+            toast('Auto-Studio applied!', 'success');
         }
 
         function retake() {
@@ -1510,6 +1648,7 @@
         document.getElementById('downloadBtn').addEventListener('click', download);
         document.getElementById('retakeBtn').addEventListener('click', retake);
         document.getElementById('resetControls').addEventListener('click', resetControls);
+        document.getElementById('autoEnhanceBtn').addEventListener('click', autoEnhance);
 
         document.getElementById('tabCamera').addEventListener('click', () => setTab('camera'));
         document.getElementById('tabUpload').addEventListener('click', () => setTab('upload'));
@@ -1587,6 +1726,13 @@
             const v = parseInt(e.target.value);
             state.settings.contrast = v;
             document.getElementById('contrastVal').textContent = v >= 0 ? '+' + v : v;
+            saveState();
+            queueRender();
+        });
+        document.getElementById('skinSmooth').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.settings.skinSmooth = v;
+            document.getElementById('skinSmoothVal').textContent = v + '%';
             saveState();
             queueRender();
         });
