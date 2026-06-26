@@ -663,11 +663,14 @@
                     </div>
 
                     <div class="mt-4 grid grid-cols-3 gap-3">
-                        <button id="downloadBtn" class="btn-primary px-4 py-3 rounded-lg text-sm col-span-2" disabled>
-                            <i class="fa-solid fa-download mr-2"></i>Download
+                        <button id="downloadBtn" class="btn-primary px-3 py-3 rounded-lg text-sm font-semibold flex items-center justify-center" title="Download Single Image" disabled>
+                            <i class="fa-solid fa-download mr-1"></i>Digital
                         </button>
-                        <button id="retakeBtn" class="btn-secondary px-4 py-3 rounded-lg text-sm" disabled>
-                            <i class="fa-solid fa-rotate-right mr-2"></i>Retake
+                        <button id="downloadSheetBtn" class="btn-primary px-3 py-3 rounded-lg text-sm font-semibold flex items-center justify-center" title="Generate 4x6 Print Sheet" disabled>
+                            <i class="fa-solid fa-print mr-1"></i>4x6 Sheet
+                        </button>
+                        <button id="retakeBtn" class="btn-secondary px-3 py-3 rounded-lg text-sm font-semibold flex items-center justify-center" disabled>
+                            <i class="fa-solid fa-rotate-right mr-1"></i>Retake
                         </button>
                     </div>
 
@@ -704,57 +707,64 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                     <div>
-                        <label
-                            class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Background
-                            Color</label>
+                        <label class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Format & Background</label>
+                        <select id="countryFormat" class="w-full bg-[rgba(255,255,255,0.04)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--fg)] mb-4 focus:outline-none focus:border-[var(--accent)]">
+                            <option value="EU">Europe/UK (35x45mm)</option>
+                            <option value="US">US/India (2x2")</option>
+                            <option value="CA">Canada (50x70mm)</option>
+                        </select>
+                        
                         <div class="flex flex-wrap gap-2 mb-3">
-                            <button class="color-swatch active" data-color="#1e63d6" style="background:#1e63d6"
-                                title="Standard Blue"></button>
-                            <button class="color-swatch" data-color="#2563eb" style="background:#2563eb"
-                                title="Royal Blue"></button>
-                            <button class="color-swatch" data-color="#0e7490" style="background:#0e7490"
-                                title="Cyan"></button>
-                            <button class="color-swatch" data-color="#dc2626" style="background:#dc2626"
-                                title="Red"></button>
-                            <button class="color-swatch" data-color="#ffffff" style="background:#ffffff"
-                                title="White"></button>
-                            <button class="color-swatch" data-color="#9ca3af" style="background:#9ca3af"
-                                title="Grey"></button>
-                            <button class="color-swatch" data-color="#065f46" style="background:#065f46"
-                                title="Green"></button>
+                            <button class="color-swatch active" data-color="#1e63d6" style="background:#1e63d6" title="Standard Blue"></button>
+                            <button class="color-swatch" data-color="#2563eb" style="background:#2563eb" title="Royal Blue"></button>
+                            <button class="color-swatch" data-color="#0e7490" style="background:#0e7490" title="Cyan"></button>
+                            <button class="color-swatch" data-color="#dc2626" style="background:#dc2626" title="Red"></button>
+                            <button class="color-swatch" data-color="#ffffff" style="background:#ffffff" title="White"></button>
+                            <button class="color-swatch" data-color="#9ca3af" style="background:#9ca3af" title="Grey"></button>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <input type="color" id="bgColorPicker" value="#1e63d6"
-                                class="w-9 h-9 rounded cursor-pointer bg-transparent border border-[var(--border)]">
-                            <input type="text" id="bgColorText" value="#1e63d6"
-                                class="flex-1 bg-[rgba(255,255,255,0.04)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[var(--accent)]">
+                        <div class="flex items-center gap-2 mb-4">
+                            <input type="color" id="bgColorPicker" value="#1e63d6" class="w-8 h-8 rounded cursor-pointer bg-transparent border border-[var(--border)]">
+                            <input type="text" id="bgColorText" value="#1e63d6" class="flex-1 bg-[rgba(255,255,255,0.04)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-[var(--accent)]">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[var(--accent-2)] transition">
+                                <input type="checkbox" id="bgTexture" class="w-4 h-4 accent-[var(--accent)]"> Studio Texture
+                            </label>
+                            <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[var(--accent-2)] transition">
+                                <input type="checkbox" id="showGrid" class="w-4 h-4 accent-[var(--accent)]"> ICAO Grid Overlay
+                            </label>
                         </div>
                     </div>
 
                     <div>
-                        <label
-                            class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Crop
-                            & Position</label>
+                        <label class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Crop & Position</label>
                         <div class="space-y-3">
                             <div>
                                 <div class="flex justify-between text-xs mb-1.5">
-                                    <span class="text-[var(--muted)]">Zoom (Head Size)</span>
+                                    <span class="text-[var(--muted)]">Zoom</span>
                                     <span id="zoomVal" class="text-[var(--accent-2)] font-mono">100%</span>
                                 </div>
                                 <input type="range" id="zoom" min="0.5" max="2.0" step="0.05" value="1.0">
                             </div>
                             <div>
                                 <div class="flex justify-between text-xs mb-1.5">
-                                    <span class="text-[var(--muted)]">Move Up / Down</span>
+                                    <span class="text-[var(--muted)]">Rotation</span>
+                                    <span id="rotateVal" class="text-[var(--accent-2)] font-mono">0°</span>
+                                </div>
+                                <input type="range" id="rotate" min="-20" max="20" step="1" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Move Up/Down</span>
                                     <span id="offsetYVal" class="text-[var(--accent-2)] font-mono">0%</span>
                                 </div>
                                 <input type="range" id="offsetY" min="-100" max="100" step="1" value="0">
                             </div>
                             <div>
                                 <div class="flex justify-between text-xs mb-1.5">
-                                    <span class="text-[var(--muted)]">Move Left / Right</span>
+                                    <span class="text-[var(--muted)]">Move Left/Right</span>
                                     <span id="offsetXVal" class="text-[var(--accent-2)] font-mono">0%</span>
                                 </div>
                                 <input type="range" id="offsetX" min="-100" max="100" step="1" value="0">
@@ -763,9 +773,22 @@
                     </div>
 
                     <div>
-                        <label
-                            class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Enhancement</label>
+                        <label class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Lighting & Depth</label>
                         <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Backdrop Shadow</span>
+                                    <span id="shadowVal" class="text-[var(--accent-2)] font-mono">0%</span>
+                                </div>
+                                <input type="range" id="shadow" min="0" max="100" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-[var(--muted)]">Ring Light</span>
+                                    <span id="ringLightVal" class="text-[var(--accent-2)] font-mono">0%</span>
+                                </div>
+                                <input type="range" id="ringLight" min="0" max="100" value="0">
+                            </div>
                             <div>
                                 <div class="flex justify-between text-xs mb-1.5">
                                     <span class="text-[var(--muted)]">Brightness</span>
@@ -780,6 +803,12 @@
                                 </div>
                                 <input type="range" id="contrast" min="-50" max="50" value="0">
                             </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Retouching</label>
+                        <div class="space-y-3">
                             <div>
                                 <div class="flex justify-between text-xs mb-1.5">
                                     <span class="text-[var(--muted)]">Skin Smooth</span>
@@ -798,9 +827,7 @@
                     </div>
 
                     <div>
-                        <label
-                            class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Color
-                            Grade</label>
+                        <label class="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-3 block font-semibold">Color Grade</label>
                         <div class="space-y-3">
                             <div>
                                 <div class="flex justify-between text-xs mb-1.5">
@@ -875,6 +902,12 @@
     </div>
 
     <script>
+        const FORMATS = {
+            'EU': { name: 'Europe/UK/AU (35x45mm)', width: 35, height: 45, headMin: 0.70, headMax: 0.80 },
+            'US': { name: 'US/India (2x2")', width: 51, height: 51, headMin: 0.50, headMax: 0.69 },
+            'CA': { name: 'Canada (50x70mm)', width: 50, height: 70, headMin: 0.50, headMax: 0.60 }
+        };
+
         // ========== STATE ==========
         const state = {
             modelsLoaded: false,
@@ -882,9 +915,15 @@
             stream: null,
             currentSource: null,      // Image element of captured/uploaded image
             currentMode: 'camera',    // 'camera' or 'upload'
+            format: 'EU',
             bgColor: '#1e63d6',
+            bgTexture: false,
+            showGrid: false,
             cutoutCanvas: null,       // Canvas with person cutout (transparent bg)
             cutoutInfo: null,         // { cropX, cropY, cropW, cropH }
+            faceBox: null,
+            srcW: 0,
+            srcH: 0,
             settings: {
                 brightness: 0,
                 contrast: 0,
@@ -892,12 +931,15 @@
                 sharpen: 0,
                 warmth: 0,
                 saturation: 0,
-                intensity: 0
+                intensity: 0,
+                shadow: 0,
+                ringLight: 0
             },
             adjustments: {
                 zoom: 1.0,
                 offsetY: 0,
-                offsetX: 0
+                offsetX: 0,
+                rotate: 0
             }
         };
 
@@ -1130,6 +1172,34 @@
         }
 
         // ========== MAIN PROCESSING ==========
+        function calculateCrop() {
+            if (!state.faceBox) return;
+            const fmt = FORMATS[state.format];
+            const targetAspect = fmt.width / fmt.height;
+            const srcW = state.srcW;
+            const srcH = state.srcH;
+            
+            const faceW = state.faceBox.width * srcW;
+            const faceH = state.faceBox.height * srcH;
+            const faceCx = state.faceBox.xCenter * srcW;
+            const faceCy = state.faceBox.yCenter * srcH;
+
+            // Estimate head height (face box is eyebrows to chin, full head includes hair)
+            const headHeight = faceH * 1.8;
+            
+            // Adjust framing based on target country's head percentage requirement
+            const headTarget = (fmt.headMin + fmt.headMax) / 2;
+            const frameHeight = headHeight / headTarget;
+            const frameWidth = frameHeight * targetAspect;
+
+            state.cutoutInfo = {
+                cropX: faceCx - frameWidth / 2,
+                cropY: faceCy - frameHeight * 0.50,
+                cropW: frameWidth,
+                cropH: frameHeight
+            };
+        }
+
         async function processImage() {
             if (!state.currentSource || !state.modelsLoaded) {
                 toast('Nothing to process yet', 'error');
@@ -1144,6 +1214,8 @@
                 // MUST prioritize naturalWidth, otherwise DOM elements return their CSS layout size!
                 const srcW = source.naturalWidth || source.videoWidth || source.width;
                 const srcH = source.naturalHeight || source.videoHeight || source.height;
+                state.srcW = srcW;
+                state.srcH = srcH;
 
                 // 1. Face detection
                 document.getElementById('processingText').textContent = 'Detecting face...';
@@ -1152,6 +1224,7 @@
                 if (faceResults.detections && faceResults.detections.length > 0) {
                     faceBox = faceResults.detections[0].boundingBox;
                 }
+                state.faceBox = faceBox;
 
                 // 2. Selfie segmentation
                 document.getElementById('processingText').textContent = 'Removing background...';
@@ -1172,45 +1245,25 @@
                 cutoutCtx.globalCompositeOperation = 'source-in';
                 cutoutCtx.drawImage(source, 0, 0, srcW, srcH);
 
-                // 4. Calculate crop rectangle (passport 35:45 ratio)
-                document.getElementById('processingText').textContent = 'Cropping to passport size...';
-                const targetAspect = 35 / 45;
-                let cropX, cropY, cropW, cropH;
-
-                if (faceBox) {
-                    const faceW = faceBox.width * srcW;
-                    const faceH = faceBox.height * srcH;
-                    const faceCx = faceBox.xCenter * srcW;
-                    const faceCy = faceBox.yCenter * srcH;
-
-                    // Estimate head height (face box ~ eyebrows-to-chin; head includes hair)
-                    const headHeight = faceH * 1.8;
-                    const frameHeight = headHeight / 0.60; // head = 60% of frame for safe headroom
-                    const frameWidth = frameHeight * targetAspect;
-
-                    // Position: face center ~50% from top of frame (perfectly centered vertically)
-                    cropX = faceCx - frameWidth / 2;
-                    cropY = faceCy - frameHeight * 0.50;
-                    cropW = frameWidth;
-                    cropH = frameHeight;
+                // 4. Calculate crop rectangle dynamically
+                document.getElementById('processingText').textContent = 'Cropping to target size...';
+                state.cutoutCanvas = cutout;
+                if (state.faceBox) {
+                    calculateCrop();
                 } else {
-                    // No face: center crop with passport aspect
+                    const fmt = FORMATS[state.format];
+                    const targetAspect = fmt.width / fmt.height;
+                    let cropX, cropY, cropW, cropH;
                     if (srcW / srcH > targetAspect) {
-                        cropH = srcH;
-                        cropW = cropH * targetAspect;
-                        cropX = (srcW - cropW) / 2;
-                        cropY = 0;
+                        cropH = srcH; cropW = cropH * targetAspect;
+                        cropX = (srcW - cropW) / 2; cropY = 0;
                     } else {
-                        cropW = srcW;
-                        cropH = cropW / targetAspect;
-                        cropX = 0;
-                        cropY = (srcH - cropH) / 2;
+                        cropW = srcW; cropH = cropW / targetAspect;
+                        cropX = 0; cropY = (srcH - cropH) / 2;
                     }
+                    state.cutoutInfo = { cropX, cropY, cropW, cropH };
                     toast('No face detected — used center crop', 'error');
                 }
-
-                state.cutoutCanvas = cutout;
-                state.cutoutInfo = { cropX, cropY, cropW, cropH };
 
                 // 5. Render final result
                 document.getElementById('processingText').textContent = 'Applying enhancements...';
@@ -1219,6 +1272,7 @@
                 processingOverlay.classList.add('hidden');
                 scanLine.classList.add('hidden');
                 document.getElementById('downloadBtn').disabled = false;
+                document.getElementById('downloadSheetBtn').disabled = false;
                 document.getElementById('retakeBtn').disabled = false;
 
                 toast('Photo ready — click Download', 'success');
@@ -1242,12 +1296,25 @@
             });
         }
 
+        function drawSourceToDestinationRotated(ctx, srcCanvas, sx, sy, sw, sh, dx, dy, dw, dh, angleDeg) {
+            if (angleDeg === 0) {
+                drawSourceToDestination(ctx, srcCanvas, sx, sy, sw, sh, dx, dy, dw, dh);
+                return;
+            }
+            ctx.save();
+            ctx.translate(dx + dw/2, dy + dh/2);
+            ctx.rotate(angleDeg * Math.PI / 180);
+            drawSourceToDestination(ctx, srcCanvas, sx, sy, sw, sh, -dw/2, -dh/2, dw, dh);
+            ctx.restore();
+        }
+
         function renderResult() {
             if (!state.cutoutCanvas || !state.cutoutInfo) return;
             let { cropX, cropY, cropW, cropH } = state.cutoutInfo;
+            const fmt = FORMATS[state.format];
 
             canvas.width = 600;
-            canvas.height = Math.round(600 * 45 / 35); // ~772
+            canvas.height = Math.round(600 * fmt.height / fmt.width); 
 
             // Apply zoom adjustment
             const zoom = state.adjustments.zoom;
@@ -1258,7 +1325,7 @@
             cropW = newW;
             cropH = newH;
 
-            // Apply offsets (negative X shifts person right, positive Y shifts person up)
+            // Apply offsets
             cropX -= (state.adjustments.offsetX / 100) * cropW;
             cropY += (state.adjustments.offsetY / 100) * cropH;
 
@@ -1266,8 +1333,40 @@
             ctx.fillStyle = state.bgColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw cutout with safe cropping (handles out of boundary source coordinates)
-            drawSourceToDestination(ctx, state.cutoutCanvas, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+            // Studio Texture Gradient
+            if (state.bgTexture) {
+                const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.width*0.1, canvas.width/2, canvas.height/2, canvas.width);
+                grad.addColorStop(0, 'rgba(255,255,255,0.15)');
+                grad.addColorStop(1, 'rgba(0,0,0,0.3)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Backdrop Shadow
+            if (state.settings.shadow > 0) {
+                ctx.save();
+                ctx.shadowColor = `rgba(0,0,0,${state.settings.shadow / 100 * 0.8})`;
+                ctx.shadowBlur = 40 + (state.settings.shadow / 2);
+                ctx.shadowOffsetX = 10;
+                ctx.shadowOffsetY = 20;
+                drawSourceToDestinationRotated(ctx, state.cutoutCanvas, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height, state.adjustments.rotate);
+                ctx.restore();
+            }
+
+            // Draw cutout
+            drawSourceToDestinationRotated(ctx, state.cutoutCanvas, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height, state.adjustments.rotate);
+
+            // Ring Light
+            if (state.settings.ringLight > 0) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'soft-light';
+                const grad = ctx.createRadialGradient(canvas.width/2, canvas.height*0.4, 0, canvas.width/2, canvas.height*0.4, canvas.width*0.6);
+                grad.addColorStop(0, `rgba(255,255,255,${state.settings.ringLight/100 * 0.8})`);
+                grad.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            }
 
             // Enhancement pass
             applyEnhancement();
@@ -1277,6 +1376,25 @@
             if (state.settings.sharpen > 0) applySharpen(state.settings.sharpen / 100);
             // Color grade pass
             applyColorGrading();
+
+            // ICAO Grid Overlay
+            if (state.showGrid) {
+                ctx.strokeStyle = 'rgba(245, 158, 11, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                
+                // Head top guideline
+                const topY = canvas.height * (1 - fmt.headMax) / 2;
+                ctx.beginPath(); ctx.moveTo(0, topY); ctx.lineTo(canvas.width, topY); ctx.stroke();
+                
+                // Chin guideline
+                const bottomY = topY + canvas.height * fmt.headMax;
+                ctx.beginPath(); ctx.moveTo(0, bottomY); ctx.lineTo(canvas.width, bottomY); ctx.stroke();
+
+                // Center line
+                ctx.beginPath(); ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height); ctx.stroke();
+                ctx.setLineDash([]);
+            }
         }
 
         function applyEnhancement() {
@@ -1427,6 +1545,68 @@
             link.href = canvas.toDataURL('image/png');
             link.click();
             toast('Photo downloaded', 'success');
+        }
+
+        function downloadSheet() {
+            if (!state.cutoutCanvas || !state.cutoutInfo) return;
+            
+            // 4x6 inches at 300 DPI is 1800x1200 pixels
+            const sheetCanvas = document.createElement('canvas');
+            sheetCanvas.width = 1800;
+            sheetCanvas.height = 1200;
+            const sCtx = sheetCanvas.getContext('2d');
+            
+            // Fill white background for paper
+            sCtx.fillStyle = '#ffffff';
+            sCtx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+            
+            // Passport size at 300 DPI
+            const fmt = FORMATS[state.format];
+            const dpi = 300;
+            const mmToInch = 1 / 25.4;
+            const pWidth = Math.round(fmt.width * mmToInch * dpi);
+            const pHeight = Math.round(fmt.height * mmToInch * dpi);
+            
+            // Layout: 2 rows, 3 cols = 6 photos
+            const cols = 3;
+            const rows = 2;
+            const gapX = 100;
+            const gapY = 80;
+            
+            const totalGridW = cols * pWidth + gapX * (cols - 1);
+            const totalGridH = rows * pHeight + gapY * (rows - 1);
+            
+            const startX = (sheetCanvas.width - totalGridW) / 2;
+            const startY = (sheetCanvas.height - totalGridH) / 2;
+            
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const x = startX + c * (pWidth + gapX);
+                    const y = startY + r * (pHeight + gapY);
+                    
+                    sCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, x, y, pWidth, pHeight);
+                    
+                    // Draw cut lines (faint grey border)
+                    sCtx.strokeStyle = '#cccccc';
+                    sCtx.lineWidth = 2;
+                    sCtx.setLineDash([15, 10]);
+                    sCtx.strokeRect(x, y, pWidth, pHeight);
+                    sCtx.setLineDash([]); // reset
+                }
+            }
+            
+            // Add a little instruction text at the bottom
+            sCtx.fillStyle = '#888888';
+            sCtx.font = '24px sans-serif';
+            sCtx.textAlign = 'center';
+            sCtx.fillText('Passport Studio — Print on 4x6" (10x15cm) Photo Paper at 100% Scale', sheetCanvas.width / 2, sheetCanvas.height - 30);
+            
+            const link = document.createElement('a');
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            link.download = `passport-4x6-print-sheet-${timestamp}.png`;
+            link.href = sheetCanvas.toDataURL('image/png');
+            link.click();
+            toast('Print sheet generated and downloaded', 'success');
         }
 
         // ========== UI WIRING ==========
@@ -1634,6 +1814,7 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             emptyState.classList.remove('hidden');
             document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('downloadSheetBtn').disabled = true;
             document.getElementById('retakeBtn').disabled = true;
             uploadPreview.classList.add('hidden');
             uploadImg.src = '';
@@ -1646,6 +1827,7 @@
         document.getElementById('captureBtn').addEventListener('click', capturePhoto);
         document.getElementById('processBtn').addEventListener('click', processImage);
         document.getElementById('downloadBtn').addEventListener('click', download);
+        document.getElementById('downloadSheetBtn').addEventListener('click', downloadSheet);
         document.getElementById('retakeBtn').addEventListener('click', retake);
         document.getElementById('resetControls').addEventListener('click', resetControls);
         document.getElementById('autoEnhanceBtn').addEventListener('click', autoEnhance);
@@ -1692,6 +1874,23 @@
             if (/^#[0-9a-fA-F]{6}$/.test(v)) updateBgColor(v);
             else e.target.value = state.bgColor;
         });
+        // Checkboxes & Format
+        document.getElementById('countryFormat').addEventListener('change', (e) => {
+            state.format = e.target.value;
+            // Recalculate crop based on new format, then render
+            if (state.faceBox && state.currentSource) {
+                calculateCrop();
+            }
+            queueRender();
+        });
+        document.getElementById('bgTexture').addEventListener('change', (e) => {
+            state.bgTexture = e.target.checked;
+            queueRender();
+        });
+        document.getElementById('showGrid').addEventListener('change', (e) => {
+            state.showGrid = e.target.checked;
+            queueRender();
+        });
 
         // Sliders
         document.getElementById('zoom').addEventListener('input', (e) => {
@@ -1712,6 +1911,27 @@
             const v = parseInt(e.target.value);
             state.adjustments.offsetX = v;
             document.getElementById('offsetXVal').textContent = (v >= 0 ? '+' : '') + v + '%';
+            saveState();
+            queueRender();
+        });
+        document.getElementById('rotate').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.adjustments.rotate = v;
+            document.getElementById('rotateVal').textContent = v + '°';
+            saveState();
+            queueRender();
+        });
+        document.getElementById('shadow').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.settings.shadow = v;
+            document.getElementById('shadowVal').textContent = v + '%';
+            saveState();
+            queueRender();
+        });
+        document.getElementById('ringLight').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            state.settings.ringLight = v;
+            document.getElementById('ringLightVal').textContent = v + '%';
             saveState();
             queueRender();
         });
